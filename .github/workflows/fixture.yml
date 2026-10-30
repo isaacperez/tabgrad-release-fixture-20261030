@@ -1,160 +1,149 @@
-name: Synthetic publication-access diagnostics
-'on':
+name: Synthetic observer-channel qualification
+on:
   workflow_dispatch:
     inputs:
+      expected_revision:
+        description: Exact reviewed fixture commit
+        type: string
+        required: true
+      deadline:
+        description: Original UTC cutoff for this one handshake
+        type: string
+        required: true
       confirmation:
-        description: Enter publication-access-probe after separate operational authorization
+        description: observer-channel-probe
         type: string
         required: true
 permissions:
   contents: read
   actions: read
-  issues: read
 concurrency:
-  group: tabgrad-release-publication
+  group: synthetic-observer-channel
   cancel-in-progress: false
 env:
-  PROBE_ENABLED: ${{ vars.PROBE_ENABLED }}
-  PROBE_CONFIRMATION: ${{ inputs.confirmation }}
-  PROBE_PROFILE_JSON: ${{ vars.PROBE_PROFILE_JSON }}
-  PROBE_PROFILE_SHA256: ${{ vars.PROBE_PROFILE_SHA256 }}
+  EXPECTED_REVISION: ${{ inputs.expected_revision }}
+  PROBE_DEADLINE: ${{ inputs.deadline }}
 jobs:
-  precheck:
-    name: probe-precheck
-    if: ${{ vars.PROBE_ENABLED == 'true' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && github.run_attempt == '1' && inputs.confirmation == 'publication-access-probe' }}
+  client:
+    name: channel-client
+    if: ${{ vars.CHANNEL_PROBE_ENABLED == 'true' && inputs.confirmation == 'observer-channel-probe' && github.ref == 'refs/heads/main' && github.sha == inputs.expected_revision && github.run_attempt == 1 }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         ref: ${{ github.sha }}
         persist-credentials: false
-    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      with:
-        repository: isaacperez/tabgrad
-        ref: bcdbdd0577c8dac9e9376b9c2a73e2e841a3e1b2
-        path: tabgrad
-        persist-credentials: false
     - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
       with:
         node-version: 22.12.0
         check-latest: false
-    - name: Observe the protected context and synthetic input controls
-      id: role
-      run: node probe.mjs precheck
-      env:
-        GH_TOKEN: ${{ github.token }}
-        PROBE_OUTPUT_DIRECTORY: ${{ runner.temp }}/probe-precheck
-        TABGRAD_RELEASE_POLICY_JSON: ${{ secrets.TABGRAD_RELEASE_POLICY_JSON }}
-        TABGRAD_RELEASE_POLICY_SHA256: ${{ secrets.TABGRAD_RELEASE_POLICY_SHA256 }}
-        TABGRAD_RELEASE_QUALIFICATION_JSON: ${{ secrets.TABGRAD_RELEASE_QUALIFICATION_JSON }}
-    - name: Check the finite observation budget
-      id: budget
-      if: ${{ always() && steps.role.outcome != 'skipped' }}
-      run: node probe.mjs budget "$PROBE_OUTPUT_DIRECTORY"
-      env:
-        PROBE_OUTPUT_DIRECTORY: ${{ runner.temp }}/probe-precheck
-    - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-      if: ${{ always() && steps.budget.outcome == 'success' }}
+    - name: Prepare synthetic readiness
+      id: prepare
+      run: node channel.mjs prepare "$RUNNER_TEMP/channel-client"
+    - name: Readiness SHA256 ${{ steps.prepare.outputs.ready_sha }}
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       with:
-        name: access-probe-precheck-${{ github.run_id }}-${{ github.run_attempt }}
-        path: ${{ runner.temp }}/probe-precheck
+        name: channel-ready-${{ github.run_id }}-${{ steps.prepare.outputs.ready_sha }}
+        path: ${{ runner.temp }}/channel-client/public-output/ready.json
         overwrite: false
         if-no-files-found: error
         retention-days: 30
-    outputs:
-      admitted: ${{ steps.role.outputs.admitted }}
-      approval: ${{ steps.role.outputs.approval }}
-  writer:
-    name: probe-writer
-    needs: precheck
-    if: ${{ needs.precheck.outputs.admitted == 'true' }}
-    environment: tabgrad-npm-publication
-    permissions:
-      contents: write
-      actions: read
-      issues: read
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    steps:
-    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      with:
-        ref: ${{ github.sha }}
-        persist-credentials: false
-    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      with:
-        repository: isaacperez/tabgrad
-        ref: bcdbdd0577c8dac9e9376b9c2a73e2e841a3e1b2
-        path: tabgrad
-        persist-credentials: false
-    - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-      with:
-        node-version: 22.12.0
-        check-latest: false
-    - name: Compare known resources and attempt one admitted note update
-      id: role
-      run: node probe.mjs writer
+    - name: Prepare foreign-role control
+      id: foreign
+      run: node channel.mjs foreign "$RUNNER_TEMP/channel-client"
       env:
-        GH_TOKEN: ${{ github.token }}
-        PROBE_OUTPUT_DIRECTORY: ${{ runner.temp }}/probe-writer
-        TABGRAD_RELEASE_POLICY_JSON: ${{ secrets.TABGRAD_RELEASE_POLICY_JSON }}
-        TABGRAD_RELEASE_POLICY_SHA256: ${{ secrets.TABGRAD_RELEASE_POLICY_SHA256 }}
-        TABGRAD_RELEASE_QUALIFICATION_JSON: ${{ secrets.TABGRAD_RELEASE_QUALIFICATION_JSON }}
-    - name: Check the finite observation budget
-      id: budget
-      if: ${{ always() && steps.role.outcome != 'skipped' }}
-      run: node probe.mjs budget "$PROBE_OUTPUT_DIRECTORY"
-      env:
-        PROBE_OUTPUT_DIRECTORY: ${{ runner.temp }}/probe-writer
-    - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-      if: ${{ always() && steps.budget.outcome == 'success' }}
+        READY_SHA: ${{ steps.prepare.outputs.ready_sha }}
+    - name: Permission SHA256 ${{ steps.foreign.outputs.fake_sha }}
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       with:
-        name: access-probe-writer-${{ github.run_id }}-${{ github.run_attempt }}
-        path: ${{ runner.temp }}/probe-writer
+        name: channel-permission-${{ github.run_id }}-${{ steps.foreign.outputs.fake_sha }}
+        path: ${{ runner.temp }}/channel-client/public-output/permission.json
         overwrite: false
         if-no-files-found: error
         retention-days: 30
-  reader:
-    name: probe-reader
-    needs: [precheck, writer]
-    if: ${{ always() && !cancelled() && needs.precheck.result == 'success' }}
+    - name: Await observed permission
+      id: permission
+      run: node channel.mjs find-permission "$RUNNER_TEMP/channel-client"
+      env:
+        GH_TOKEN: ${{ github.token }}
+    - name: Receive identified permission
+      uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+      with:
+        artifact-ids: ${{ steps.permission.outputs.artifact_id }}
+        github-token: ${{ github.token }}
+        run-id: ${{ github.run_id }}
+        path: ${{ runner.temp }}/channel-client/received
+        digest-mismatch: error
+    - name: Validate and consume into one local marker
+      run: node channel.mjs consume "$RUNNER_TEMP/channel-client"
+      env:
+        GH_TOKEN: ${{ github.token }}
+        READY_SHA: ${{ steps.prepare.outputs.ready_sha }}
+        FAKE_SHA: ${{ steps.foreign.outputs.fake_sha }}
+    - name: Bound client evidence
+      id: budget
+      if: ${{ always() }}
+      run: node channel.mjs budget "$RUNNER_TEMP/channel-client"
+    - name: Preserve client observations
+      if: ${{ always() && steps.budget.outcome == 'success' }}
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      with:
+        name: channel-client-report-${{ github.run_id }}
+        path: ${{ runner.temp }}/channel-client/public-output
+        overwrite: false
+        if-no-files-found: error
+        retention-days: 30
+  observer:
+    name: channel-observer
+    if: ${{ vars.CHANNEL_PROBE_ENABLED == 'true' && inputs.confirmation == 'observer-channel-probe' && github.ref == 'refs/heads/main' && github.sha == inputs.expected_revision && github.run_attempt == 1 }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         ref: ${{ github.sha }}
         persist-credentials: false
-    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      with:
-        repository: isaacperez/tabgrad
-        ref: bcdbdd0577c8dac9e9376b9c2a73e2e841a3e1b2
-        path: tabgrad
-        persist-credentials: false
     - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
       with:
         node-version: 22.12.0
         check-latest: false
-    - name: Observe known draft and asset with the reader token
-      id: role
-      run: node probe.mjs reader
+    - name: Observe readiness of the active client
+      id: ready
+      run: node channel.mjs find-ready "$RUNNER_TEMP/channel-observer"
       env:
         GH_TOKEN: ${{ github.token }}
-        PROBE_OUTPUT_DIRECTORY: ${{ runner.temp }}/probe-reader
-        TABGRAD_RELEASE_POLICY_JSON: ${{ secrets.TABGRAD_RELEASE_POLICY_JSON }}
-        TABGRAD_RELEASE_POLICY_SHA256: ${{ secrets.TABGRAD_RELEASE_POLICY_SHA256 }}
-        TABGRAD_RELEASE_QUALIFICATION_JSON: ${{ secrets.TABGRAD_RELEASE_QUALIFICATION_JSON }}
-    - name: Check the finite observation budget
-      id: budget
-      if: ${{ always() && steps.role.outcome != 'skipped' }}
-      run: node probe.mjs budget "$PROBE_OUTPUT_DIRECTORY"
-      env:
-        PROBE_OUTPUT_DIRECTORY: ${{ runner.temp }}/probe-reader
-    - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-      if: ${{ always() && steps.budget.outcome == 'success' }}
+    - name: Receive identified readiness
+      uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
       with:
-        name: access-probe-reader-${{ github.run_id }}-${{ github.run_attempt }}
-        path: ${{ runner.temp }}/probe-reader
+        artifact-ids: ${{ steps.ready.outputs.artifact_id }}
+        github-token: ${{ github.token }}
+        run-id: ${{ github.run_id }}
+        path: ${{ runner.temp }}/channel-observer/received
+        digest-mismatch: error
+    - name: Check live association and issue synthetic permission
+      id: grant
+      run: node channel.mjs permit "$RUNNER_TEMP/channel-observer"
+      env:
+        GH_TOKEN: ${{ github.token }}
+    - name: Permission SHA256 ${{ steps.grant.outputs.permission_sha }}
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      with:
+        name: channel-permission-${{ github.run_id }}-${{ steps.grant.outputs.permission_sha }}
+        path: ${{ runner.temp }}/channel-observer/public-output/permission.json
+        overwrite: false
+        if-no-files-found: error
+        retention-days: 30
+    - name: Bound observer evidence
+      id: budget
+      if: ${{ always() }}
+      run: node channel.mjs budget "$RUNNER_TEMP/channel-observer"
+    - name: Preserve observer observations
+      if: ${{ always() && steps.budget.outcome == 'success' }}
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      with:
+        name: channel-observer-report-${{ github.run_id }}
+        path: ${{ runner.temp }}/channel-observer/public-output
         overwrite: false
         if-no-files-found: error
         retention-days: 30

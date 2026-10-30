@@ -1,33 +1,35 @@
-# Synthetic publication-access diagnostics
+# Synthetic observer-channel qualification
 
-This disposable fixture studies a GitHub job token's access to a known draft
-and asset. It is not a Tabgrad release, npm package or deployment.
+This disposable manual fixture investigates whether an identified file digest
+in a resolved upload-step name can associate an artifact with the exact job
+while its client is still running. It is inert until separately admitted,
+enabled and dispatched for its exact source and original deadline.
 
-The maintainer separately admits the seed's exact identity and bytes. One
-manual run compares Contents-write and Contents-read jobs, each with its own
-token, using unchanged modules pinned by `SOURCE` in `probe.mjs`. The writer
-may change only the admitted draft's notes once. Neither role publishes the
-draft, creates a package, signs anything or expands the reader's permissions.
+Two read-only jobs run concurrently. The client uploads synthetic readiness and
+a foreign-role permission control, then waits. The observer reads the exact
+attempt-scoped job metadata, receives the identified readiness, rechecks its
+live association, emits a synthetic permission, uploads it and completes. Only
+then can the client validate the observer's job/step and packet, reject the
+foreign-role control and create one local marker. No npm client, publishing
+identity, OIDC, Git writer, draft/tag/release operation or deployment is used.
 
-The maintained `visibility()` and `state()` results remain separate from the
-diagnostic requests. Their failures and bounded result projections are preserved;
-a returned incomplete or mismatched state is marked as a divergence. This fixture does not weaken
-production admission. A known-resource read proves only that observed access,
-not universal visibility or future access. The reader runs after a failed
-writer when precheck succeeded, so an important contrary result is retained.
+The raw packet SHA-256 differs from the provider artifact ZIP digest; both are
+checked at their respective boundaries. Missing, literal, truncated, masked,
+ambiguous, failed or expired metadata is insufficient. An artifact name alone
+does not authenticate its producer. The foreign-role check uses the actual
+client job identity and records its specific role-mismatch rejection; the
+client's other state differences are not a universal adversarial proof.
 
-Three deliberately synthetic inputs also exercise repository-secret delivery
-only to the consuming steps, private-policy admission and bounded errors.
-Actual header/log redaction must be inspected after the separately authorized
-run. Local tests and an observations-complete job do not prove provider masking.
-No real private release configuration belongs in this repository or its output.
+API calls are fixed-origin GETs of job/artifact metadata. Bounded originals and
+request/version/digest receipts, packets and local observations are retained as
+data for inspection. Known credential-valued fields are rejected; no request
+authentication header or environment dump is stored. This synthetic-only
+policy is not a general classifier for arbitrary private provider responses.
+Uploads have a checked two-MiB report limit and requested thirty-day retention.
+The operational plan must separately admit readers, cost, custody and cleanup.
 
-The workflow is inert without separate enable, finite admitted configuration
-and confirmation. Activation, seed creation, synthetic secret installation,
-dispatch and any remote mutation require their own operational authorization.
-The private plan owns destinations, actors, one-run limits, cost, custody and
-recovery. Do not adopt unknown existing resources or retry an uncertain effect.
-
-Local checks: `node --test probe.test.mjs`, with the pinned Tabgrad checkout in
-`tabgrad/` or selected by `PROBE_TEST_SOURCE`. The YAML is also checked locally
-against its exact roles, pinned actions and input scope before use.
+Local tests are `node --test channel.test.mjs`; imports perform no service
+operation. Local controls do not qualify REST availability, action behavior,
+service authentication, the human-bootstrap channel or a complete publisher.
+The marker is not an npm call or an exactly-once guarantee. This method changes
+no library behavior, release policy or private configuration transport.
