@@ -201,9 +201,31 @@ async function admit(r) {
   return {admission_sha:hash(raw)};
 }
 
+/** Keep originals after partial effects too; failure is never authority to retry. */
+export async function conserveRole(r,role,action) {
+  const {m,state,root}=r;
+  let result,failure,conservation='confirmed';
+  try { result=await action(); }
+  catch(error) {
+    failure=error;
+    try { await save(m,join(root,'public-output',`failure-${role}.json`),{fixture:true,role,code:error.code??'FIXTURE_FAILED',
+      receipt:error.receipt?Object.fromEntries(['status','attemptedCommit','priorHead','pushExit','pushSignal']
+        .filter(key=>Object.hasOwn(error.receipt,key)).map(key=>[key,error.receipt[key]])):null}); }
+    catch { conservation='unconfirmed'; }
+  }
+  try { await m.transferPublicationHistory(join(root,'evidence'),join(root,'public-output/evidence')); }
+  catch { conservation='unconfirmed'; }
+  try { await save(m,join(root,'public-output',`transport-${role}.json`),{fixture:true,observations:state.api.observations,conservation}); }
+  catch { conservation='unconfirmed'; }
+  if(conservation!=='confirmed')throw Object.assign(new Error('FIXTURE_CONSERVATION_UNCONFIRMED'),
+    {code:'FIXTURE_CONSERVATION_UNCONFIRMED',cause:failure});
+  if(failure)throw failure;
+  return result;
+}
+
 export async function run(role,e=process.env) {
   const r=await runtime(role,e), {m,state,root}=r;
-  try {
+  return conserveRole(r,role,async()=>{
     let result;
     if(role==='precheck') {
       await m.observePublicationConservation(state);
@@ -246,12 +268,7 @@ export async function run(role,e=process.env) {
     if(e.GITHUB_OUTPUT) for(const [key,value]of Object.entries(result??{})) if(/^[a-z_]+$/.test(key)&&typeof value==='string'&&!/[\r\n]/.test(value))
       await appendFile(e.GITHUB_OUTPUT,`${key}=${value}\n`);
     return {fixture:true,status:'passed',role,source:SOURCE,npmRequests:0};
-  } catch(error) {
-    await save(m,join(root,'public-output',`failure-${role}.json`),{fixture:true,role,code:error.code??'FIXTURE_FAILED',
-      receipt:error.receipt??null});throw error;
-  } finally {
-    await save(m,join(root,'public-output',`transport-${role}.json`),{fixture:true,observations:state.api.observations});
-  }
+  });
 }
 
 export async function budget(directory) {

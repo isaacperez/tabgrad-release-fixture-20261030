@@ -5,6 +5,7 @@ import { pathToFileURL } from 'node:url';
 import test from 'node:test';
 import { modules, prepareClient, permitClient, executeNoEffect, recordNoEffect, completeSynthetic,
   commentPrefix } from './core.mjs';
+import { conserveRole } from './qualification.mjs';
 
 const source=resolve(process.env.FIXTURE_SOURCE_DIRECTORY??'tabgrad');
 const m=await modules(source);
@@ -89,4 +90,29 @@ test('synthetic completion rejects unbound settlement before any effect',async t
   await assert.rejects(completeSynthetic({...client,state:f.observerState},{fixture:true,npmOutcome:'verified-effect'}),
     {code:'FIXTURE_SETTLEMENT_CHANGED'});
   assert.equal(f.requests.some(r=>r.method!=='GET'),false);
+});
+
+test('a failure after confirmed journal effects keeps every original in the actual upload tree',async t=>{
+  const{f,client}=await fixture(t);
+  // The fixture has enrolled/opened/recorded the npm intent through actual
+  // file-Git. The wrapper used by native roles must retain those originals
+  // even when the next step fails, without appending or retrying anything.
+  await m.transferPublicationHistory(f.environment.TABGRAD_RECORD_INPUT,join(f.root,'evidence'));
+  const before=await m.publicationHistoryFiles(join(f.root,'evidence'));
+  assert.ok(Object.keys(before).length>0);
+  await assert.rejects(conserveRole(client,'admit',async()=>{
+    throw Object.assign(new Error('after confirmed effect'),{code:'FIXTURE_AFTER_EFFECT',
+      receipt:{status:'confirmed',attemptedCommit:'a'.repeat(40),privatePath:'/not-for-public-output'}});
+  }),{code:'FIXTURE_AFTER_EFFECT'});
+  const retained=await m.publicationHistoryFiles(join(f.root,'public-output/evidence'));
+  assert.deepEqual(Object.keys(retained).sort(),Object.keys(before).sort());
+  for(const identity of Object.keys(before))assert.deepEqual(await readFile(retained[identity]),await readFile(before[identity]));
+  const failure=JSON.parse(await readFile(join(f.root,'public-output/failure-admit.json')));
+  assert.equal(failure.code,'FIXTURE_AFTER_EFFECT');assert.equal(failure.receipt.status,'confirmed');
+  assert.equal(failure.receipt.privatePath,undefined);
+  const replay=await m.releaseRecord({command:'read',config:await m.publicationRecordConfig(join(f.root,'evidence'),f.policy),
+    expectedHead:f.admission.handoff.recordHead});
+  assert.equal(replay.operations[0].calls[0].outcome,'unknown');
+  assert.equal(JSON.parse(await readFile(join(f.root,'public-output/transport-admit.json'))).conservation,'confirmed');
+  assert.equal(f.calls,0);
 });
