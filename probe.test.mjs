@@ -115,11 +115,14 @@ test('authentic transport originals retain status/hash/version without authentic
   const e = environment(), c = probeContext(e), saved = new Map();
   const raw = Buffer.from('{"permissions":{"push":false}}');
   const fetcher = captureTransport(c, e, async (name, bytes) => saved.set(name, bytes), async () => new Response(raw, {
-    headers: { 'x-github-request-id': 'fixture-id', 'x-accepted-github-permissions': 'contents=read' } }));
-  await fetcher(`https://api.github.com/repos/${c.repository}`, { headers: { Authorization: 'Bearer synthetic-test-only' } });
+    headers: { 'x-github-request-id': 'fixture-id', 'x-accepted-github-permissions': 'contents=read',
+      'x-github-api-version-selected': '2026-03-10' } }));
+  await fetcher(`https://api.github.com/repos/${c.repository}`,
+    { headers: { Authorization: 'Bearer synthetic-test-only', 'X-GitHub-Api-Version': '2022-11-28' } });
   assert(saved.get('http-001.json').equals(raw));
   const metadata = saved.get('http-001-metadata.json');
-  assert.equal(metadata.status, 200); assert.equal(metadata.sha256, hash(raw)); assert.equal(metadata.apiVersion, '2022-11-28');
+  assert.equal(metadata.status, 200); assert.equal(metadata.sha256, hash(raw));
+  assert.equal(metadata.requestedApiVersion, '2022-11-28'); assert.equal(metadata.selectedApiVersion, '2026-03-10');
   assert.equal(metadata.authenticated, true); assert.equal(metadata.acceptedPermissions, 'contents=read');
   assert.equal(JSON.stringify([...saved]).includes('synthetic-test-only'), false);
   await assert.rejects(fetcher('https://example.invalid/anything', {}), { code: 'PROBE_REQUEST_DESTINATION' });
@@ -134,6 +137,7 @@ test('a response credential is not retained or made public, including nested tok
   await assert.rejects(fetcher(`https://api.github.com/repos/${c.repository}`, {}), { code: 'PROBE_CREDENTIAL_RESPONSE_OMITTED' });
   assert.equal(saved.has('http-001.json'), false); assert.equal(saved.size, 1);
   assert.equal(saved.get('http-001-metadata.json').omittedCredential, true);
+  assert.equal(saved.get('http-001-metadata.json').selectedApiVersion, null);
   assert.equal(JSON.stringify([...saved]).includes('synthetic-sensitive-marker'), false);
 });
 
@@ -184,6 +188,37 @@ test('true permissions do not skip maintained state or known resource checks', a
   const result = await observeAccess(m.api, c, 'reader', async () => {}, async () => {});
   assert.equal(result.complete, true); assert.equal(result.probes.maintainedVisibility.status, 'passed');
   assert.equal(result.probes.maintainedState.status, 'passed');
+  assert.equal(result.probes.maintainedState.value.matchesKnownSeed, true);
+  assert.equal(result.probes.maintainedState.value.observed.release.id, '101');
+  assert.equal(result.probes.maintainedState.value.observed.release.notes, 'initial');
+  assert.equal(result.probes.maintainedState.value.observed.assets[0].id, '102');
+});
+
+for (const route of ['/releases?per_page=100&page=1', '/releases/101/assets?per_page=100&page=1'])
+  test(`a later maintained ${route} omission is preserved even after direct/list positives`, async () => {
+    const c = probeContext(environment()); let seen = 0;
+    const m = model(c, { permissions: true, readOnly: true, override: request => {
+      if (request.route === route && ++seen === 2) return Response.json([]);
+    } });
+    const result = await observeAccess(m.api, c, 'reader', async () => {}, async () => {});
+    assert.equal(result.probes.draftListed.status, 'passed'); assert.equal(result.probes.assetsListed.status, 'passed');
+    assert.equal(result.probes.assetBytes.status, 'passed'); assert.equal(result.complete, true);
+    const maintained = result.probes.maintainedState;
+    assert.equal(maintained.status, 'diverged'); assert.equal(maintained.code, 'PROBE_MAINTAINED_STATE_DIVERGENCE');
+    assert.equal(maintained.value.matchesKnownSeed, false); assert.deepEqual(maintained.value.observed.assets, []);
+    if (route.startsWith('/releases?')) assert.equal(maintained.value.observed.release, null);
+    else assert.equal(maintained.value.observed.release.id, '101');
+  });
+
+test('a later maintained visibility identity difference is retained separately from its successful call', async () => {
+  const c = probeContext(environment()); let seen = 0;
+  const m = model(c, { permissions: true, readOnly: true, override: request => {
+    if (request.route === '' && ++seen === 2) return Response.json({ ...request.values.get(''), id: 18 });
+  } });
+  const result = await observeAccess(m.api, c, 'reader', async () => {}, async () => {});
+  assert.equal(result.probes.repository.status, 'passed'); assert.equal(result.probes.maintainedState.status, 'passed');
+  assert.equal(result.probes.maintainedVisibility.status, 'diverged');
+  assert.equal(result.probes.maintainedVisibility.value.observed.repositoryId, '18');
 });
 
 for (const role of ['reader', 'writer']) test(`known draft 404 stays a failed ${role} observation and does not suppress other reads`, async () => {

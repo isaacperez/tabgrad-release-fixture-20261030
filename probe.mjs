@@ -117,6 +117,34 @@ export function checkAssets(values, c) {
   return { id: String(value.id), byteLength: value.size };
 }
 
+export function permissionProjection(value) {
+  return Object.fromEntries(['admin', 'maintain', 'push', 'triage', 'pull']
+    .map(name => [name, typeof value?.[name] === 'boolean' ? value[name] : null]));
+}
+
+export function maintainedVisibilityObservation(value, c) {
+  return { matchesKnownRepository: String(value.id) === c.profile.repositoryId
+      && String(value.owner?.id) === c.profile.ownerId && value.full_name === c.repository,
+    observed: { repositoryId: String(value.id), ownerId: String(value.owner?.id),
+      permissions: permissionProjection(value.permissions), archived: value.archived, disabled: value.disabled } };
+}
+
+export function maintainedStateObservation(value, c) {
+  let releaseMatches = true;
+  try { checkRelease(value.release, c); } catch { releaseMatches = false; }
+  const assets = value.assets.map(asset => ({ id: asset?.id ?? null, name: asset?.name ?? null,
+    byteLength: asset?.byteLength ?? null, sha256: asset?.sha256 ?? null }));
+  const observed = { tagRevision: value.tagRevision,
+    release: value.release === null ? null : { id: String(value.release.id), draft: value.release.draft,
+      notes: value.release.body === INITIAL_NOTES ? 'initial' : value.release.body === UPDATED_NOTES ? 'updated' : 'unexpected',
+      knownName: value.release.name === c.profile.seed.tag, knownTarget: value.release.target_commitish === c.profile.seed.revision },
+    assets, latestId: value.latestId };
+  return { matchesKnownSeed: releaseMatches && value.tagRevision === c.profile.seed.revision && value.latestId === null
+      && assets.length === 1 && assets[0].id === c.profile.seed.assetId && assets[0].name === c.profile.seed.assetName
+      && assets[0].byteLength === c.profile.seed.byteLength && assets[0].sha256 === c.profile.seed.sha256,
+    observed };
+}
+
 export function hasCredential(value) {
   if (!value || typeof value !== 'object') return false;
   for (const [key, child] of Object.entries(value)) {
@@ -171,7 +199,9 @@ export function captureTransport(c, e, save, fetcher = fetch) {
     let json; try { json = JSON.parse(raw); } catch { /* Empty redirect bodies remain originals. */ }
     const credential = hasCredential(json);
     await save(`http-${index}-metadata.json`, { method: options?.method ?? 'GET', route: address.pathname + address.search,
-      status: response.status, byteLength: raw.length, sha256: hash(raw), apiVersion: '2022-11-28',
+      status: response.status, byteLength: raw.length, sha256: hash(raw),
+      requestedApiVersion: new Headers(options?.headers).get('x-github-api-version'),
+      selectedApiVersion: response.headers.get('x-github-api-version-selected'),
       authenticated: new Headers(options?.headers).has('Authorization'), requestId: response.headers.get('x-github-request-id'),
       acceptedPermissions: response.headers.get('x-accepted-github-permissions'), omittedCredential: credential });
     check(!credential, 'PROBE_CREDENTIAL_RESPONSE_OMITTED');
@@ -220,7 +250,7 @@ export async function observeAccess(api, c, role, save, live) {
       const repo = await api.request('');
       check(String(repo.id) === c.profile.repositoryId && String(repo.owner?.id) === c.profile.ownerId
         && repo.full_name === c.repository && repo.archived === false && repo.disabled === false, 'PROBE_REPOSITORY_IDENTITY');
-      return { permissions: repo.permissions ?? null };
+      return { permissions: permissionProjection(repo.permissions) };
     }],
     ['main', async () => {
       const value = await api.request('/git/ref/heads/main');
@@ -243,11 +273,18 @@ export async function observeAccess(api, c, role, save, live) {
       check(await api.request(`/releases/${c.profile.seed.absentReleaseId}`, { absent: true }) === null, 'PROBE_NEGATIVE_CHANGED');
       return { status: 404, basis: 'Separate maintainer baseline of this one negative ID, not general absence authority.' };
     }],
-    ['maintainedVisibility', () => api.visibility()],
-    ['maintainedState', () => api.state(probePlan(c), new Map([[c.profile.seed.assetName, c.profile.seed]]), { forceAssetReads: true })],
+    ['maintainedVisibility', async () => maintainedVisibilityObservation(await api.visibility(), c)],
+    ['maintainedState', async () => maintainedStateObservation(await api.state(probePlan(c),
+      new Map([[c.profile.seed.assetName, c.profile.seed]]), { forceAssetReads: true }), c)],
   ];
   for (const [name, action] of actions) {
-    try { const value = await action(); probes[name] = { status: 'passed', ...(name.startsWith('maintained') ? {} : { value }) }; }
+    try {
+      const value = await action();
+      const diverged = name === 'maintainedState' && !value.matchesKnownSeed
+        || name === 'maintainedVisibility' && !value.matchesKnownRepository;
+      probes[name] = { status: diverged ? 'diverged' : 'passed', value,
+        ...(diverged ? { code: name === 'maintainedState' ? 'PROBE_MAINTAINED_STATE_DIVERGENCE' : 'PROBE_MAINTAINED_VISIBILITY_DIVERGENCE' } : {}) };
+    }
     catch (error) { probes[name] = { status: 'failed', code: errorCode(error) }; }
   }
   const required = actions.filter(([name]) => !name.startsWith('maintained')).map(([name]) => name);

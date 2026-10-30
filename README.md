@@ -10,7 +10,8 @@ may change only the admitted draft's notes once. Neither role publishes the
 draft, creates a package, signs anything or expands the reader's permissions.
 
 The maintained `visibility()` and `state()` results remain separate from the
-diagnostic requests. Their failure is preserved; this fixture does not weaken
+diagnostic requests. Their failures and bounded result projections are preserved;
+a returned incomplete or mismatched state is marked as a divergence. This fixture does not weaken
 production admission. A known-resource read proves only that observed access,
 not universal visibility or future access. The reader runs after a failed
 writer when precheck succeeded, so an important contrary result is retained.
