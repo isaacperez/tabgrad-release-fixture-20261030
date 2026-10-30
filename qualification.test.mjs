@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import test from 'node:test';
-import { context, material, rejectCredentialFields } from './qualification.mjs';
+import { context, material, rejectCredentialFields, roleState } from './qualification.mjs';
 import { SOURCE, WORKFLOW, modules, hash } from './core.mjs';
 
 const source=resolve(process.env.FIXTURE_SOURCE_DIRECTORY??'tabgrad');
@@ -62,6 +62,7 @@ test('modeled unsigned plan is deterministic and never becomes producer or npm p
  assert.equal(a.plan.publisher.repository,c.profile.repository);
  assert.equal(a.plan.candidate.name,'@example/service-fixture');assert.equal(a.assets.size,6);
  assert.equal(a.authority.batchPlanSha256,c.profile.batchPlanSha256);
+ assert.equal(a.plan.candidate.version,'0.0.3');assert.equal(a.plan.github.tag,'v0.0.3');
 });
 
 test('controlled diagnostic executes the real policy rejection without credentials or raw canaries',()=>{
@@ -127,4 +128,61 @@ test('three whole values reach only consuming command steps, not setup/transfer 
    for(const name of names)assert.equal(step.env?.[name],consumes?'${{ secrets.'+name+' }}':undefined);
   }
  }
+});
+
+
+test('actual role selection agrees with every native job and preserves the common context',()=>{
+ const w=workflow(),f=fixture(),c=context(f.e,f.now).context;
+ const roles={precheck:'precheck',admit:'admit',prepare:'client','select-ready':'gate',permit:'gate',
+  'select-permission':'client',execute:'client',observe:'observe',complete:'complete'};
+ for(const[role,job]of Object.entries(roles)){
+  const base={context:c,marker:17},state=roleState(role,base);
+  assert.equal(state.activeJobName,w.jobs[job].name);assert.equal(state.context,c);
+  assert.equal(state.marker,17);assert.deepEqual(base,{context:c,marker:17});
+  assert.equal(Object.hasOwn(c,'activeJobName'),false);
+ }
+ assert.throws(()=>roleState('foreign',{context:c}),{code:'FIXTURE_ROLE'});
+ const refs=Object.values(w.jobs).flatMap(j=>j.steps).filter(s=>s.with?.repository==='isaacperez/tabgrad').map(s=>s.with.ref);
+ assert.equal(refs.length,6);assert.ok(refs.every(x=>x===SOURCE));
+});
+
+async function queuedAuthority(role){
+ const f=fixture(),c=context(f.e,f.now),built=await material(m,source,c.profile,c.context),plan=built.plan;
+ const environment={id:31,name:'tabgrad-npm-publication',can_admins_bypass:false,
+  deployment_branch_policy:{protected_branches:false,custom_branch_policies:true},
+  protection_rules:[{type:'required_reviewers',reviewers:[{type:'User',reviewer:{id:23}}]}]};
+ const branches=[{id:32,type:'branch',name:'main'}];
+ const policy={repositoryId:'17',ownerId:'23',workflow:WORKFLOW,recipeRevision:c.context.revision,writerPolicySha256:'7'.repeat(64),
+  maintainers:[{id:'23',ownerSha256:plan.owner}],environment:{id:'31',name:environment.name,
+   snapshotSha256:hash(m.canonicalBytes(m.publicationEnvironmentSnapshot(environment,branches)))},
+  operationalEvidence:{expiresAt:c.profile.window.deadline}};
+ const job={id:91,run_id:301,run_attempt:1,head_sha:c.context.revision,name:workflow().jobs[role].name,
+  status:'in_progress',conclusion:null};
+ const values=new Map([
+  ['',{id:17,owner:{id:23},full_name:plan.publisher.repository,default_branch:'main',archived:false,disabled:false}],
+  ['/actions/runs/301',{id:301,run_attempt:1,event:'workflow_dispatch',head_sha:c.context.revision,head_branch:'main',
+   path:WORKFLOW,status:'queued',conclusion:null,repository:{id:17},head_repository:{id:17}}],
+  ['/actions/runs/301/attempts/1/jobs?per_page=100',{total_count:1,jobs:[job]}],
+  ['/environments/tabgrad-npm-publication',environment],
+  ['/environments/tabgrad-npm-publication/deployment-branch-policies?per_page=100&page=1',{total_count:1,branch_policies:branches}],
+  ['/actions/runs/301/approvals',[{state:'approved',comment:m.publicationApprovalComment(plan,hash(m.canonicalBytes(plan)),c.context),
+    user:{id:23},environments:[{id:31}]}]],
+ ]);
+ const base={plan,planSha256:hash(m.canonicalBytes(plan)),policy,context:c.context,
+  api:{request:async route=>{assert.ok(values.has(route),route);return structuredClone(values.get(route));}}};
+ return{base,state:roleState(role,base),values,job};
+}
+
+for(const role of ['admit','complete'])test(`queued aggregate authenticates the fixture's exact ${role} job through the real owner`,async()=>{
+ const f=await queuedAuthority(role);
+ await assert.rejects(m.observePublicationAuthority(f.base),{code:'PUBLICATION_RUN_INVALID'});
+ assert.equal((await m.observePublicationAuthority(f.state)).approved,true);
+ f.job.name=role==='complete'?'complete-github-release':'precheck-publication';
+ await assert.rejects(m.observePublicationAuthority(f.state),{code:'PUBLICATION_RUN_INVALID'});
+});
+
+test('queued precheck conserves without borrowing a later approval',async()=>{
+ const f=await queuedAuthority('precheck');f.values.delete('/actions/runs/301/approvals');
+ assert.deepEqual(await m.observePublicationConservation(f.state),{schemaVersion:1,status:'conservation-only'});
+ await assert.rejects(m.observePublicationAuthority(f.state));
 });

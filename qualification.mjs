@@ -15,6 +15,15 @@ const instant = x => typeof x === 'string' && Number.isFinite(Date.parse(x)) && 
 const writers = { admit: 'admit', permit: 'gate', observe: 'observe', complete: 'complete' };
 const roleJobs = { precheck:'precheck', admit:'admit', prepare:'client', 'select-ready':'gate', permit:'gate',
   'select-permission':'client', execute:'client', observe:'observe', complete:'complete' };
+const jobNames = { precheck:'precheck-publication', admit:'admit-publication', client:'publish-approved-npm',
+  gate:'observe-ready-publication', observe:'record-npm-outcome', complete:'qualify-synthetic-github-completion' };
+
+/** Current-role proof is separate from the shared gate context. */
+export function roleState(role, state) {
+  check(Object.hasOwn(roleJobs, role), 'FIXTURE_ROLE');
+  return { ...state, activeJobName: jobNames[roleJobs[role]] };
+}
+
 const exact = (value, keys) => value && typeof value === 'object' && !Array.isArray(value)
   && Object.keys(value).length === keys.length && keys.every(key => Object.hasOwn(value,key));
 
@@ -55,7 +64,7 @@ export async function material(m, source, p, c) {
   const plan = publicationPlanFixture().publicationPlan;
   const archive = m.canonicalBytes({ fixture: true, notPackage: true, source: SOURCE });
   const proof = m.canonicalBytes({ fixture: true, unsigned: true, notProducerEvidence: true });
-  const candidate = { name: '@example/service-fixture', version: '0.0.1', sourceRevision: c.revision,
+  const candidate = { name: '@example/service-fixture', version: '0.0.3', sourceRevision: c.revision,
     tarball: { path: 'candidate.json', byteLength: archive.length } };
   const inventory = m.canonicalBytes(candidate);
   plan.window = p.window;
@@ -81,7 +90,7 @@ export async function material(m, source, p, c) {
   const assets = new Map(plan.github.assets.map(a => [a.name,
     a.kind === 'archive' ? archive : a.kind === 'inventory' ? inventory : a.kind.endsWith('proof') ? proof
       : m.canonicalBytes({ fixture: true, kind: a.kind, noProducerOrPackageClaim: true })]));
-  plan.github = { ...plan.github, repository: p.repository, tag: 'v0.0.1', notesSha256: hash(Buffer.from(notes)),
+  plan.github = { ...plan.github, repository: p.repository, tag: 'v0.0.3', notesSha256: hash(Buffer.from(notes)),
     before: { tagRevision: c.revision, releaseId: p.seedReleaseId },
     assets: plan.github.assets.map(a => ({ ...a, byteLength: assets.get(a.name).length, sha256: hash(assets.get(a.name)) })) };
   m.validatePublicationPlan(plan);
@@ -138,12 +147,12 @@ async function runtime(role, e) {
     writerPolicySha256: hash(m.canonicalBytes(writerPolicy)), maintainers: [{ id: p.reviewerId, ownerSha256: plan.owner }],
     environment: { id: p.environmentId, name: 'tabgrad-npm-publication', snapshotSha256: p.environmentSnapshotSha256 },
     operationalEvidence: { sha256: hash(Buffer.from(e.TABGRAD_RELEASE_QUALIFICATION_JSON)), expiresAt: p.window.deadline },
-    record: { protocol: 'https', location: `https://github.com/${p.repository}.git`, ref: 'refs/heads/release-fixture-record', root: null } };
-  const state = { plan, planSha256: hash(m.canonicalBytes(plan)), policy, context: c, api };
+    record: { protocol: 'https', location: `https://github.com/${p.repository}.git`, ref: 'refs/heads/release-fixture-record-2', root: null } };
+  const state = roleState(role, { plan, planSha256: hash(m.canonicalBytes(plan)), policy, context: c, api });
   state.fresh = async () => {
     context(e); const observation = await m.observePublicationAuthority(state);
     await api.prerequisites(plan);
-    for (const [branch, expected] of [['main',p.mainRulesSha256],['release-fixture-record',p.recordRulesSha256]]) {
+    for (const [branch, expected] of [['main',p.mainRulesSha256],['release-fixture-record-2',p.recordRulesSha256]]) {
       const rules = await api.pages(`/rules/branches/${branch}`);
       check(hash(m.canonicalBytes(rules)) === expected, 'FIXTURE_RULES_CHANGED');
     }
@@ -177,7 +186,7 @@ async function admit(r) {
   const authorityObservation = await state.fresh();
   const prior = await state.api.state(state.plan,new Map(state.plan.github.assets.map(a=>[a.name,a])));
   m.checkPublicationGithubState(state.plan,prior,new Set(),r.material.notes);
-  check(await state.api.request('/git/ref/heads/release-fixture-record',{absent:true}) === null, 'FIXTURE_EXISTING_ROOT');
+  check(await state.api.request('/git/ref/heads/release-fixture-record-2',{absent:true}) === null, 'FIXTURE_EXISTING_ROOT');
   const evidence = {};
   const retain = async value => { const raw=m.canonicalBytes(value),identity=hash(raw),path=join(root,'evidence',`${identity}.json`);
     if (!evidence[identity]) { await save(m,path,raw); evidence[identity]=path; } return identity; };

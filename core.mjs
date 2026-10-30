@@ -4,7 +4,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-export const SOURCE = '4dfedb34e5de873606f0cd6a1b1b5b04abf78752';
+export const SOURCE = '2d17a332dae3b807d191a7f835fd2ec841591818';
 export const WORKFLOW = '.github/workflows/fixture.yml';
 export const notes = 'Synthetic service qualification only. No npm package, producer signature or Tabgrad release.';
 export const hash = raw => createHash('sha256').update(raw).digest('hex');

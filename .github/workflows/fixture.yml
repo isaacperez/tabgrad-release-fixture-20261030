@@ -36,7 +36,7 @@ jobs:
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       with:
         repository: isaacperez/tabgrad
-        ref: 4dfedb34e5de873606f0cd6a1b1b5b04abf78752
+        ref: 2d17a332dae3b807d191a7f835fd2ec841591818
         path: tabgrad
         persist-credentials: false
     - name: Select the identified controller
@@ -94,7 +94,7 @@ jobs:
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       with:
         repository: isaacperez/tabgrad
-        ref: 4dfedb34e5de873606f0cd6a1b1b5b04abf78752
+        ref: 2d17a332dae3b807d191a7f835fd2ec841591818
         path: tabgrad
         persist-credentials: false
     - name: Select the identified controller
@@ -152,7 +152,7 @@ jobs:
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       with:
         repository: isaacperez/tabgrad
-        ref: 4dfedb34e5de873606f0cd6a1b1b5b04abf78752
+        ref: 2d17a332dae3b807d191a7f835fd2ec841591818
         path: tabgrad
         persist-credentials: false
     - name: Select the identified controller
@@ -263,7 +263,7 @@ jobs:
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       with:
         repository: isaacperez/tabgrad
-        ref: 4dfedb34e5de873606f0cd6a1b1b5b04abf78752
+        ref: 2d17a332dae3b807d191a7f835fd2ec841591818
         path: tabgrad
         persist-credentials: false
     - name: Select the identified controller
@@ -357,7 +357,7 @@ jobs:
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       with:
         repository: isaacperez/tabgrad
-        ref: 4dfedb34e5de873606f0cd6a1b1b5b04abf78752
+        ref: 2d17a332dae3b807d191a7f835fd2ec841591818
         path: tabgrad
         persist-credentials: false
     - name: Select the identified controller
@@ -438,7 +438,7 @@ jobs:
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       with:
         repository: isaacperez/tabgrad
-        ref: 4dfedb34e5de873606f0cd6a1b1b5b04abf78752
+        ref: 2d17a332dae3b807d191a7f835fd2ec841591818
         path: tabgrad
         persist-credentials: false
     - name: Select the identified controller

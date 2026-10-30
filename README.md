@@ -1,11 +1,17 @@
 # Complete synthetic release-service qualification
 
 This finite fixture qualifies GitHub service prerequisites around the unchanged
-Tabgrad source `4dfedb34e5de873606f0cd6a1b1b5b04abf78752`. It is not a package,
+Tabgrad source `2d17a332dae3b807d191a7f835fd2ec841591818`. It is not a package,
 a Tabgrad release, a producer proof or a deployment. Do not install its files.
 Activation and every service effect require a separately admitted finite plan.
 The manual workflow is inert by default; no npm/OIDC or producer-signing identity
 is supplied to any role.
+
+This successor uses new synthetic version `0.0.3` and control branch
+`release-fixture-record-2`; it does not reset earlier attempts. Queued aggregate
+metadata requires the exact active current job. Its fixed role selection stays
+outside the common readiness/permission context, including the fixture's own
+synthetic-completion job name.
 
 The chain connects protected approval, exact synthetic configuration bytes,
 HTTPS intent/readback, an active prepared caller, an attributed maintainer
