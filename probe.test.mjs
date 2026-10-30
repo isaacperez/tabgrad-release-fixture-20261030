@@ -234,6 +234,7 @@ test('synthetic private inputs pass the real parser and actual CLI negative emit
   const result = await privateControls(source, inputs);
   assert.equal(result.policyAdmission, 'passed'); assert.equal(result.qualificationIdentity, 'passed');
   assert.equal(result.cli.code, 'PUBLICATION_ROLE_FAILED'); assert.equal(result.wrongDigest, 'PUBLICATION_POLICY_IDENTITY');
+  assert.equal(result.syntheticInputReceiptSha256, hash(canonical(PRIVATE_INPUTS.map(name => inputs[name]))));
   assert(!JSON.stringify(result).includes('tg355-policy-')); assert(!JSON.stringify(result).includes('tg355-evidence-'));
   await assert.rejects(privateControls(source, { ...inputs, TABGRAD_RELEASE_POLICY_SHA256: 'f'.repeat(64) }));
 });

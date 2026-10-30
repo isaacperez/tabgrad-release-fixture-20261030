@@ -207,7 +207,8 @@ export async function privateControls(source, e) {
       && value.status === 'failed' && value.code === 'PUBLICATION_ROLE_FAILED', 'PROBE_CLI_OUTPUT');
     check(!PRIVATE_INPUTS.some(name => result.stdout.includes(e[name])), 'PROBE_PRIVATE_OUTPUT');
     return { policyAdmission: 'passed', qualificationIdentity: 'passed', wrongDigest: invalid,
-      cli: value, inputShape: 'compact-policy-and-multiline-evidence',
+      cli: value, syntheticInputReceiptSha256: hash(canonical(PRIVATE_INPUTS.map(name => e[name]))),
+      inputShape: 'compact-policy-and-multiline-evidence',
       limits: 'Synthetic registered whole values; not arbitrary nested-field or future-value masking.' };
   } finally { await rm(root, { recursive: true, force: true }); }
 }
