@@ -1,25 +1,32 @@
-# Synthetic release-service fixture
+# Synthetic publication-access diagnostics
 
-This repository is a finite GitHub service qualification, not a Tabgrad
-release, npm package, application or deployment. The data, tag, draft and
-optional public release are synthetic. No npm identity, job OIDC or producer-signing
-permission is provided. Publishing the synthetic immutable release automatically
-generates its public GitHub release attestation; that effect needs approval too. Do not install or depend on its release.
+This disposable fixture studies a GitHub job token's access to a known draft
+and asset. It is not a Tabgrad release, npm package or deployment.
 
-The reviewed `fixture.mjs` uses unchanged release primitives from the exact
-public Tabgrad source identified by its `SOURCE` constant. It measures actual
-manual queue/approval, HTTPS control-record writes/readback, identified artifact
-handoffs, read-only draft/asset access and conditional release immutability.
-The maintained `visibility/state` path and direct reads are reported separately;
-a failure stops completion without expanding the reader's authority.
+The maintainer separately admits the seed's exact identity and bytes. One
+manual run compares Contents-write and Contents-read jobs, each with its own
+token, using unchanged modules pinned by `SOURCE` in `probe.mjs`. The writer
+may change only the admitted draft's notes once. Neither role publishes the
+draft, creates a package, signs anything or expands the reader's permissions.
 
-`FIXTURE_ENABLED` is absent/false by default. Activation, separately admitted
-configuration and the two exact dispatches require operational authorization.
-Only inspected synthetic data and generated safe observations belong in this
-repository or its artifacts. Keep credentials and account/deployment dossiers
-outside them. Fixture success does not qualify production identities/settings,
-npm authentication, producer signatures, tensor behavior or useful delivery.
+The maintained `visibility()` and `state()` results remain separate from the
+diagnostic requests. Their failure is preserved; this fixture does not weaken
+production admission. A known-resource read proves only that observed access,
+not universal visibility or future access. The reader runs after a failed
+writer when precheck succeeded, so an important contrary result is retained.
 
-Local checks: `node --test fixture.test.mjs`.
-The private operational plan owns the allowed runs, cost, custody and recovery;
-this README grants no service access or publication authority.
+Three deliberately synthetic inputs also exercise repository-secret delivery
+only to the consuming steps, private-policy admission and bounded errors.
+Actual header/log redaction must be inspected after the separately authorized
+run. Local tests and an observations-complete job do not prove provider masking.
+No real private release configuration belongs in this repository or its output.
+
+The workflow is inert without separate enable, finite admitted configuration
+and confirmation. Activation, seed creation, synthetic secret installation,
+dispatch and any remote mutation require their own operational authorization.
+The private plan owns destinations, actors, one-run limits, cost, custody and
+recovery. Do not adopt unknown existing resources or retry an uncertain effect.
+
+Local checks: `node --test probe.test.mjs`, with the pinned Tabgrad checkout in
+`tabgrad/` or selected by `PROBE_TEST_SOURCE`. The YAML is also checked locally
+against its exact roles, pinned actions and input scope before use.

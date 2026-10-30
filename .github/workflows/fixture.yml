@@ -1,14 +1,9 @@
-name: Synthetic release-service qualification
+name: Synthetic publication-access diagnostics
 'on':
   workflow_dispatch:
     inputs:
-      case:
-        description: Exact approved A or B case, no rerun
-        type: choice
-        options: [A, B]
-        required: true
       confirmation:
-        description: Enter release-service-fixture after operational authorization
+        description: Enter publication-access-probe after separate operational authorization
         type: string
         required: true
 permissions:
@@ -19,15 +14,14 @@ concurrency:
   group: tabgrad-release-publication
   cancel-in-progress: false
 env:
-  FIXTURE_ENABLED: ${{ vars.FIXTURE_ENABLED }}
-  FIXTURE_PROFILE_JSON: ${{ vars.FIXTURE_PROFILE_JSON }}
-  FIXTURE_PROFILE_SHA256: ${{ vars.FIXTURE_PROFILE_SHA256 }}
-  FIXTURE_CASE: ${{ inputs.case }}
-  FIXTURE_CONFIRMATION: ${{ inputs.confirmation }}
+  PROBE_ENABLED: ${{ vars.PROBE_ENABLED }}
+  PROBE_CONFIRMATION: ${{ inputs.confirmation }}
+  PROBE_PROFILE_JSON: ${{ vars.PROBE_PROFILE_JSON }}
+  PROBE_PROFILE_SHA256: ${{ vars.PROBE_PROFILE_SHA256 }}
 jobs:
   precheck:
-    name: fixture-precheck
-    if: ${{ vars.FIXTURE_ENABLED == 'true' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && github.run_attempt == '1' && inputs.confirmation == 'release-service-fixture' }}
+    name: probe-precheck
+    if: ${{ vars.PROBE_ENABLED == 'true' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && github.run_attempt == '1' && inputs.confirmation == 'publication-access-probe' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -45,33 +39,34 @@ jobs:
       with:
         node-version: 22.12.0
         check-latest: false
-    - name: Check protections before naming the environment
+    - name: Observe the protected context and synthetic input controls
       id: role
-      run: node fixture.mjs precheck
+      run: node probe.mjs precheck
       env:
         GH_TOKEN: ${{ github.token }}
-        FIXTURE_OUTPUT_DIRECTORY: ${{ runner.temp }}/fixture-out
-    - name: Show the exact approval comment
-      run: printf '%s\n' "$APPROVAL" >> "$GITHUB_STEP_SUMMARY"
-      env:
-        APPROVAL: ${{ steps.role.outputs.approval }}
-    - name: Check the finite artifact budget
-      id: bounds
+        PROBE_OUTPUT_DIRECTORY: ${{ runner.temp }}/probe-precheck
+        TABGRAD_RELEASE_POLICY_JSON: ${{ secrets.TABGRAD_RELEASE_POLICY_JSON }}
+        TABGRAD_RELEASE_POLICY_SHA256: ${{ secrets.TABGRAD_RELEASE_POLICY_SHA256 }}
+        TABGRAD_RELEASE_QUALIFICATION_JSON: ${{ secrets.TABGRAD_RELEASE_QUALIFICATION_JSON }}
+    - name: Check the finite observation budget
+      id: budget
       if: ${{ always() && steps.role.outcome != 'skipped' }}
-      run: node fixture.mjs budget "$RUNNER_TEMP/fixture-out"
-    - name: Retain precheck observations including failure
-      if: ${{ always() && steps.bounds.outcome == 'success' }}
-      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      run: node probe.mjs budget "$PROBE_OUTPUT_DIRECTORY"
+      env:
+        PROBE_OUTPUT_DIRECTORY: ${{ runner.temp }}/probe-precheck
+    - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      if: ${{ always() && steps.budget.outcome == 'success' }}
       with:
-        name: release-fixture-precheck-${{ github.run_id }}-1
-        path: ${{ runner.temp }}/fixture-out
+        name: access-probe-precheck-${{ github.run_id }}-${{ github.run_attempt }}
+        path: ${{ runner.temp }}/probe-precheck
         overwrite: false
         if-no-files-found: error
-        retention-days: 90
+        retention-days: 30
     outputs:
       admitted: ${{ steps.role.outputs.admitted }}
+      approval: ${{ steps.role.outputs.approval }}
   writer:
-    name: fixture-writer
+    name: probe-writer
     needs: precheck
     if: ${{ needs.precheck.outputs.admitted == 'true' }}
     environment: tabgrad-npm-publication
@@ -80,7 +75,7 @@ jobs:
       actions: read
       issues: read
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 5
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
@@ -96,33 +91,33 @@ jobs:
       with:
         node-version: 22.12.0
         check-latest: false
-    - name: Record and create synthetic draft and asset
+    - name: Compare known resources and attempt one admitted note update
       id: role
-      run: node fixture.mjs write
+      run: node probe.mjs writer
       env:
         GH_TOKEN: ${{ github.token }}
-        FIXTURE_OUTPUT_DIRECTORY: ${{ runner.temp }}/fixture-out
-    - name: Check the finite artifact budget
-      id: bounds
+        PROBE_OUTPUT_DIRECTORY: ${{ runner.temp }}/probe-writer
+        TABGRAD_RELEASE_POLICY_JSON: ${{ secrets.TABGRAD_RELEASE_POLICY_JSON }}
+        TABGRAD_RELEASE_POLICY_SHA256: ${{ secrets.TABGRAD_RELEASE_POLICY_SHA256 }}
+        TABGRAD_RELEASE_QUALIFICATION_JSON: ${{ secrets.TABGRAD_RELEASE_QUALIFICATION_JSON }}
+    - name: Check the finite observation budget
+      id: budget
       if: ${{ always() && steps.role.outcome != 'skipped' }}
-      run: node fixture.mjs budget "$RUNNER_TEMP/fixture-out"
-    - name: Retain writer originals or partial observations
-      id: retained
-      if: ${{ always() && steps.bounds.outcome == 'success' }}
-      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      run: node probe.mjs budget "$PROBE_OUTPUT_DIRECTORY"
+      env:
+        PROBE_OUTPUT_DIRECTORY: ${{ runner.temp }}/probe-writer
+    - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      if: ${{ always() && steps.budget.outcome == 'success' }}
       with:
-        name: release-fixture-writer-${{ github.run_id }}-1
-        path: ${{ runner.temp }}/fixture-out
+        name: access-probe-writer-${{ github.run_id }}-${{ github.run_attempt }}
+        path: ${{ runner.temp }}/probe-writer
         overwrite: false
         if-no-files-found: error
-        retention-days: 90
-    outputs:
-      artifact_id: ${{ steps.retained.outputs.artifact-id }}
-      digest: ${{ steps.retained.outputs.artifact-digest }}
-      manifest_sha256: ${{ steps.role.outputs.manifest_sha256 }}
+        retention-days: 30
   reader:
-    name: fixture-reader
-    needs: writer
+    name: probe-reader
+    needs: [precheck, writer]
+    if: ${{ always() && !cancelled() && needs.precheck.result == 'success' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -140,90 +135,26 @@ jobs:
       with:
         node-version: 22.12.0
         check-latest: false
-    - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-      with:
-        artifact-ids: ${{ needs.writer.outputs.artifact_id }}
-        github-token: ${{ github.token }}
-        run-id: ${{ github.run_id }}
-        path: ${{ runner.temp }}/fixture-in
-        digest-mismatch: error
-    - name: Observe reader permissions without a writer-token fallback
+    - name: Observe known draft and asset with the reader token
       id: role
-      run: node fixture.mjs read
+      run: node probe.mjs reader
       env:
         GH_TOKEN: ${{ github.token }}
-        FIXTURE_OUTPUT_DIRECTORY: ${{ runner.temp }}/fixture-out
-        FIXTURE_INPUT_DIRECTORY: ${{ runner.temp }}/fixture-in
-        FIXTURE_ARTIFACT_ID: ${{ needs.writer.outputs.artifact_id }}
-        FIXTURE_ARTIFACT_DIGEST: ${{ needs.writer.outputs.digest }}
-        FIXTURE_MANIFEST_SHA256: ${{ needs.writer.outputs.manifest_sha256 }}
-    - name: Check the finite artifact budget
-      id: bounds
+        PROBE_OUTPUT_DIRECTORY: ${{ runner.temp }}/probe-reader
+        TABGRAD_RELEASE_POLICY_JSON: ${{ secrets.TABGRAD_RELEASE_POLICY_JSON }}
+        TABGRAD_RELEASE_POLICY_SHA256: ${{ secrets.TABGRAD_RELEASE_POLICY_SHA256 }}
+        TABGRAD_RELEASE_QUALIFICATION_JSON: ${{ secrets.TABGRAD_RELEASE_QUALIFICATION_JSON }}
+    - name: Check the finite observation budget
+      id: budget
       if: ${{ always() && steps.role.outcome != 'skipped' }}
-      run: node fixture.mjs budget "$RUNNER_TEMP/fixture-out"
-    - name: Retain reader observations including contrary results
-      if: ${{ always() && steps.bounds.outcome == 'success' }}
-      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-      with:
-        name: release-fixture-reader-${{ github.run_id }}-1
-        path: ${{ runner.temp }}/fixture-out
-        overwrite: false
-        if-no-files-found: error
-        retention-days: 90
-    outputs:
-      qualified: ${{ steps.role.outputs.qualified }}
-  complete:
-    name: fixture-completion
-    needs: [writer, reader]
-    if: ${{ needs.reader.outputs.qualified == 'true' }}
-    permissions:
-      contents: write
-      actions: read
-      issues: read
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    steps:
-    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      with:
-        ref: ${{ github.sha }}
-        persist-credentials: false
-    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      with:
-        repository: isaacperez/tabgrad
-        ref: bcdbdd0577c8dac9e9376b9c2a73e2e841a3e1b2
-        path: tabgrad
-        persist-credentials: false
-    - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-      with:
-        node-version: 22.12.0
-        check-latest: false
-    - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-      with:
-        artifact-ids: ${{ needs.writer.outputs.artifact_id }}
-        github-token: ${{ github.token }}
-        run-id: ${{ github.run_id }}
-        path: ${{ runner.temp }}/fixture-in
-        digest-mismatch: error
-    - name: Publish only the synthetic fixture release and inspect its freeze
-      id: role
-      run: node fixture.mjs complete
+      run: node probe.mjs budget "$PROBE_OUTPUT_DIRECTORY"
       env:
-        GH_TOKEN: ${{ github.token }}
-        FIXTURE_OUTPUT_DIRECTORY: ${{ runner.temp }}/fixture-out
-        FIXTURE_INPUT_DIRECTORY: ${{ runner.temp }}/fixture-in
-        FIXTURE_ARTIFACT_ID: ${{ needs.writer.outputs.artifact_id }}
-        FIXTURE_ARTIFACT_DIGEST: ${{ needs.writer.outputs.digest }}
-        FIXTURE_MANIFEST_SHA256: ${{ needs.writer.outputs.manifest_sha256 }}
-    - name: Check the finite artifact budget
-      id: bounds
-      if: ${{ always() && steps.role.outcome != 'skipped' }}
-      run: node fixture.mjs budget "$RUNNER_TEMP/fixture-out"
-    - name: Retain completion or partial observations
-      if: ${{ always() && steps.bounds.outcome == 'success' }}
-      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        PROBE_OUTPUT_DIRECTORY: ${{ runner.temp }}/probe-reader
+    - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      if: ${{ always() && steps.budget.outcome == 'success' }}
       with:
-        name: release-fixture-completion-${{ github.run_id }}-1
-        path: ${{ runner.temp }}/fixture-out
+        name: access-probe-reader-${{ github.run_id }}-${{ github.run_attempt }}
+        path: ${{ runner.temp }}/probe-reader
         overwrite: false
         if-no-files-found: error
-        retention-days: 90
+        retention-days: 30
