@@ -1,37 +1,42 @@
-# Synthetic observer-channel qualification
+# Complete synthetic release-service qualification
 
-This disposable manual fixture investigates whether an identified file digest
-in a resolved upload-step name can associate an artifact with the exact job
-while its client is still running. It is inert until separately admitted,
-enabled and dispatched for its exact source and original deadline.
+This finite fixture qualifies GitHub service prerequisites around the unchanged
+Tabgrad source `4dfedb34e5de873606f0cd6a1b1b5b04abf78752`. It is not a package,
+a Tabgrad release, a producer proof or a deployment. Do not install its files.
+Activation and every service effect require a separately admitted finite plan.
+The manual workflow is inert by default; no npm/OIDC or producer-signing identity
+is supplied to any role.
 
-Two read-only jobs run concurrently. The client uploads synthetic readiness and
-a foreign-role permission control, then waits. The observer reads the exact
-attempt-scoped job metadata, receives the identified readiness, rechecks its
-live association, emits a synthetic permission, uploads it and completes. Only
-then can the client validate the observer's job/step and packet, reject the
-foreign-role control and create one local marker. No npm client, publishing
-identity, OIDC, Git writer, draft/tag/release operation or deployment is used.
+The chain connects protected approval, exact synthetic configuration bytes,
+HTTPS intent/readback, an active prepared caller, an attributed maintainer
+readiness statement, a separate qualified draft observer and strict artifact
+transfer. Both independently expected permission bytes and the actual transferred
+packet are admitted. The controlled publishing port then deliberately rejects
+before an npm request. Its truthful no-effect is recorded, the maintained
+publisher must refuse GitHub completion, and that source operation is abandoned.
+Only a separate generic GitHub-only fixture operation may qualify synthetic asset
+and immutable-release primitives. It is never a fake successful npm publication.
+Publishing that synthetic immutable release can generate a public automatic
+GitHub attestation; it must be explicitly authorized, including its persistence.
 
-The raw packet SHA-256 differs from the provider artifact ZIP digest; both are
-checked at their respective boundaries. Missing, literal, truncated, masked,
-ambiguous, failed or expired metadata is insufficient. An artifact name alone
-does not authenticate its producer. The foreign-role check uses the actual
-client job identity and records its specific role-mismatch rejection; the
-client's other state differences are not a universal adversarial proof.
+The three configuration values use a restricted private `gh --env-file` envelope.
+Original bytes, including final LF, are retained. Unsupported data rejects before
+a setter. This is not a universal dotenv codec; native delivery and first-header/
+error-log inspection still need their own measured result. No private operational
+configuration belongs in this repository or its artifacts.
 
-API calls are fixed-origin GETs of job/artifact metadata. Bounded originals and
-request/version/digest receipts, packets and local observations are retained as
-data for inspection. Non-JSON or credential-valued bodies are withheld; their
-bounded status/request/version/size/hash diagnostic remains, not a conserved
-body original. Read failures identify incomplete acquisition. No request
-authentication header or environment dump is stored. This synthetic-only
-policy is not a general classifier for arbitrary private provider responses.
-Uploads have a checked two-MiB report limit and requested thirty-day retention.
-The operational plan must separately admit readers, cost, custody and cleanup.
+Source human IPC/client and queue evidence are reused with their stated limits.
+The native fixture checks common attribution/permission/transport boundaries with
+a controlled caller; it does not claim a real human login, npm provider or useful
+package. First useful bootstrap and later OIDC remain separate real evidence.
+A local pass does not qualify native grants, ZIP transfer, protections, immutable
+state or useful installation. No source import grants operational authority.
 
-Local tests are `node --test channel.test.mjs`; imports perform no service
-operation. Local controls do not qualify REST availability, action behavior,
-service authentication, the human-bootstrap channel or a complete publisher.
-The marker is not an npm call or an exactly-once guarantee. This method changes
-no library behavior, release policy or private configuration transport.
+Local checks use the fixed Tabgrad checkout through `FIXTURE_SOURCE_DIRECTORY`:
+`node --test secret-inputs.test.mjs qualification.test.mjs core.test.mjs`.
+Workflow validation also uses that checkout's prepared `.venv` with PyYAML;
+the fixture does not install a tool or use a global Python fallback.
+The private operational plan owns exact destinations, profiles, actors, budgets,
+comments, source admission, custody, failure recovery and retirement. It is not
+included here. Diagnostics and original observations must be inspected for their
+intended readers before transfer; metadata is not automatically credential-free.
