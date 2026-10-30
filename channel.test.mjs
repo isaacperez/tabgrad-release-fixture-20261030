@@ -116,7 +116,22 @@ test('HTTP denied and unexpected credential fields cannot become successful data
   await assert.rejects(denied('/actions/runs/20/attempts/1/jobs?per_page=100'), e => e.code === 'HTTP_RESPONSE');
   const root = await directory(t), sensitive = api(c, root, 'synthetic-only', async () => response({ temp_clone_token: 'synthetic-sentinel' }));
   await assert.rejects(sensitive('/actions/runs/20/attempts/1/jobs?per_page=100'), e => e.code === 'UNEXPECTED_CREDENTIAL_FIELD');
-  assert.deepEqual(await readdir(root), []);
+  const names = await readdir(join(root, 'public-output')); assert.equal(names.length, 1);
+  const receipt = JSON.parse(await readFile(join(root, 'public-output', names[0])));
+  assert.equal(receipt.bodyRetained, false); assert.equal(receipt.code, 'UNEXPECTED_CREDENTIAL_FIELD');
+  assert.ok(!(await readFile(join(root, 'public-output', names[0]), 'utf8')).includes('synthetic-sentinel'));
+});
+test('malformed HTTP preserves status/request/version/bytes/hash while withholding the unadmitted body', async t => {
+  const root = await directory(t), raw = '<html>synthetic gateway failure</html>';
+  const get = api(context(environment()), root, 'synthetic-only', async () => new Response(raw,
+    { status: 502, headers: { 'x-github-request-id': 'failed-request', 'x-github-api-version-selected': '2022-11-28' } }));
+  await assert.rejects(get('/actions/runs/20/attempts/1/jobs?per_page=100'), e => e.code === 'INVALID_JSON');
+  const [name] = await readdir(join(root, 'public-output'));
+  const receipt = JSON.parse(await readFile(join(root, 'public-output', name)));
+  assert.equal(receipt.status, 502); assert.equal(receipt.requestId, 'failed-request');
+  assert.equal(receipt.selectedApi, '2022-11-28'); assert.equal(receipt.bytes, Buffer.byteLength(raw));
+  assert.equal(receipt.sha256, sha(Buffer.from(raw))); assert.equal(receipt.complete, true);
+  assert.equal(receipt.bodyRetained, false); assert.equal(receipt.code, 'INVALID_JSON');
 });
 test('oversized HTTP body fails without pretending an original was captured completely', async t => {
   const get = api(context(environment()), await directory(t), 'synthetic-only', async () => new Response('x'.repeat(262145)));

@@ -22,7 +22,9 @@ client's other state differences are not a universal adversarial proof.
 
 API calls are fixed-origin GETs of job/artifact metadata. Bounded originals and
 request/version/digest receipts, packets and local observations are retained as
-data for inspection. Known credential-valued fields are rejected; no request
+data for inspection. Non-JSON or credential-valued bodies are withheld; their
+bounded status/request/version/size/hash diagnostic remains, not a conserved
+body original. Read failures identify incomplete acquisition. No request
 authentication header or environment dump is stored. This synthetic-only
 policy is not a general classifier for arbitrary private provider responses.
 Uploads have a checked two-MiB report limit and requested thirty-day retention.

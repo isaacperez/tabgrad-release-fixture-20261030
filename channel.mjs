@@ -110,23 +110,47 @@ export function api(c, root, token, fetcher = fetch, phase = 'read') {
     current(c);
     check(/^\/actions\/runs\/[1-9][0-9]*\/(?:attempts\/1\/jobs|artifacts)\?per_page=100$/.test(route)
       && route.startsWith(`/actions/runs/${c.runId}/`), 'ROUTE');
-    const response = await fetcher(`https://api.github.com/repos/${c.repository}${route}`, {
-      method: 'GET', redirect: 'error', signal: AbortSignal.timeout(Math.max(1, Math.min(30000,
-        Date.parse(c.deadline) - Date.now()))),
-      headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' } });
-    const chunks = []; let size = 0;
+    const index = `${phase}-${String(++count).padStart(3, '0')}`;
+    const receipt = { route, status: null, requestId: null, selectedApi: null, complete: false,
+      bodyRetained: false, bytes: 0, sha256: null, code: 'FETCH_FAILURE' };
+    const saveReceipt = () => put(join(root, 'public-output'), `api-${index}-receipt.json`, receipt);
+    let response;
+    try {
+      response = await fetcher(`https://api.github.com/repos/${c.repository}${route}`, {
+        method: 'GET', redirect: 'error', signal: AbortSignal.timeout(Math.max(1, Math.min(30000,
+          Date.parse(c.deadline) - Date.now()))),
+        headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' } });
+    } catch { await saveReceipt(); throw Object.assign(new Error('FETCH_FAILURE'), { code: 'FETCH_FAILURE' }); }
+    receipt.status = response.status;
+    receipt.requestId = response.headers.get('x-github-request-id');
+    receipt.selectedApi = response.headers.get('x-github-api-version-selected');
+    const chunks = []; let size = 0, readFailure;
     const reader = response.body?.getReader();
     try { if (reader) while (true) { const next = await reader.read(); if (next.done) break;
       size += next.value.length; check(size <= 256 * 1024, 'RESPONSE_LIMIT'); chunks.push(next.value); } }
-    finally { if (reader) { try { await reader.cancel(); } finally { reader.releaseLock(); } } }
-    total += size; check(total <= 1024 * 1024, 'TOTAL_RESPONSE_LIMIT');
-    const raw = Buffer.concat(chunks), parsed = JSON.parse(raw);
-    noCredentials(parsed);
-    const index = `${phase}-${String(++count).padStart(3, '0')}`;
+    catch (error) { readFailure = error; }
+    finally { if (reader) { try { await reader.cancel(); } catch (error) { readFailure ??= error; }
+      finally { reader.releaseLock(); } } }
+    const raw = Buffer.concat(chunks);
+    receipt.bytes = size; receipt.sha256 = hash(raw);
+    if (readFailure) {
+      receipt.code = readFailure.code ?? 'READ_FAILURE';
+      await saveReceipt(); throw Object.assign(new Error(receipt.code), { code: receipt.code });
+    }
+    receipt.complete = true;
+    total += size;
+    let parsed;
+    try {
+      check(total <= 1024 * 1024, 'TOTAL_RESPONSE_LIMIT');
+      try { parsed = JSON.parse(raw); }
+      catch { throw Object.assign(new Error('INVALID_JSON'), { code: 'INVALID_JSON' }); }
+      noCredentials(parsed);
+    } catch (error) {
+      receipt.code = error.code ?? 'BODY_NOT_ADMITTED';
+      await saveReceipt(); throw error;
+    }
     await put(join(root, 'public-output'), `api-${index}.json`, raw);
-    await put(join(root, 'public-output'), `api-${index}-receipt.json`, { route, status: response.status,
-      requestId: response.headers.get('x-github-request-id'), selectedApi: response.headers.get('x-github-api-version-selected'),
-      bytes: raw.length, sha256: hash(raw) });
+    receipt.bodyRetained = true; receipt.code = 'JSON_BODY_RETAINED'; await saveReceipt();
     check(response.status === 200 && response.headers.get('x-github-api-version-selected') === '2022-11-28', 'HTTP_RESPONSE');
     return parsed;
   };
